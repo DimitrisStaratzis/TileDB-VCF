@@ -185,6 +185,9 @@ class Reader {
   /** Sets the regions list parameter. */
   void set_regions(const std::string& regions);
 
+  /** Sets the query condition parameter. */
+  void set_query_condition(tiledb_query_condition_t* const qc);
+
   /** Sets the sort regionsparameter. */
   void set_sort_regions(bool sort_regions);
 
@@ -565,6 +568,9 @@ class Reader {
 
   /** TileDB VFS instance. */
   std::unique_ptr<tiledb::VFS> vfs_;
+
+  /** TileDB query condition. */
+  std::unique_ptr<QueryCondition> query_condition_;
 
   /** Handle on the dataset being exported from. */
   std::unique_ptr<TileDBVCFDataset> dataset_;
