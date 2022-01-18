@@ -46,7 +46,7 @@ else()
     endif()
 
     # Try to download prebuilt artifacts unless the user specifies to build from source
-    if(DOWNLOAD_TILEDB_PREBUILT)
+    if(FALSE)
         if (WIN32) # Windows
           SET(DOWNLOAD_URL "https://github.com/TileDB-Inc/TileDB/releases/download/2.6.0/tiledb-windows-x86_64-2.6.0-66f4b41.zip")
           SET(DOWNLOAD_SHA1 "7ff516f55e19f460ce68eb1dcb52e17f72f845a3")
@@ -83,8 +83,8 @@ else()
     else() # Build from source
         ExternalProject_Add(ep_tiledb
           PREFIX "externals"
-          URL "https://github.com/TileDB-Inc/TileDB/archive/2.6.0.zip"
-          URL_HASH SHA1=e679786ceb76eb91e5b43c1e5de911aa959bf699
+          URL "https://github.com/TileDB-Inc/TileDB/archive/lr/2.5-debug-missing-rec.zip"
+          # URL_HASH SHA1=e679786ceb76eb91e5b43c1e5de911aa959bf699
           DOWNLOAD_NAME "tiledb.zip"
           CMAKE_ARGS
             -DCMAKE_INSTALL_PREFIX=${EP_INSTALL_PREFIX}
