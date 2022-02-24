@@ -83,7 +83,7 @@ else()
     else() # Build from source
         ExternalProject_Add(ep_tiledb
           PREFIX "externals"
-          URL "https://github.com/TileDB-Inc/TileDB/archive/dev.zip"
+          URL "https://github.com/TileDB-Inc/TileDB/archive/release-2.6.zip"
           #URL_HASH SHA1=43cf1a0de26103383b6dff421435c22d090dc775
           DOWNLOAD_NAME "tiledb.zip"
           CMAKE_ARGS
