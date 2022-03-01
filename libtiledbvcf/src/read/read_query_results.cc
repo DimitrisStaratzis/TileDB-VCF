@@ -25,6 +25,7 @@
  */
 
 #include "read/read_query_results.h"
+#include "utils/logger_public.h"
 
 namespace tiledb {
 namespace vcf {
@@ -61,9 +62,42 @@ void ReadQueryResults::set_results(
   info_size_ = result_el["info"];
   fmt_size_ = result_el["fmt"];
 
+  std::stringstream msg;
+  if (LOG_DEBUG_ENABLED()) {
+    msg << fmt::format(
+        "\n contig = {}\n sample = {}\n alleles = {}\n id = {}"
+        "\n filter = {}\n info = {}\n fmt = {}",
+        contig_size_.second,
+        sample_size_.second,
+        alleles_size_.second,
+        id_size_.second,
+        filter_ids_size_.second,
+        info_size_.second,
+        fmt_size_.second);
+  }
+
+  size_t total_elements = 0;
   extra_attrs_size_.clear();
-  for (const auto& attr : dataset.metadata().extra_attributes)
+  for (const auto& attr : dataset.metadata().extra_attributes) {
     extra_attrs_size_[attr] = result_el[attr];
+    if (LOG_DEBUG_ENABLED()) {
+      msg << fmt::format("\n {} = {}", attr, extra_attrs_size_[attr].second);
+      total_elements += extra_attrs_size_[attr].second;
+    }
+  }
+
+  if (LOG_DEBUG_ENABLED()) {
+    msg << "\n status = " << query_status_;
+    total_elements += contig_size_.second + sample_size_.second +
+                      alleles_size_.second + id_size_.second +
+                      filter_ids_size_.second + info_size_.second +
+                      fmt_size_.second;
+    LOG_DEBUG(
+        "Query results: num_cells = {} total elements = {} {}",
+        num_cells_,
+        total_elements,
+        msg.str());
+  }
 }
 
 tiledb::Query::Status ReadQueryResults::query_status() const {

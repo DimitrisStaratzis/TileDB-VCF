@@ -848,12 +848,13 @@ bool Reader::next_read_batch_v4() {
   }
 
   LOG_INFO(
-      "Initialized TileDB query with {} start_pos ranges, {} for contig {} "
+      "Initialized TileDB query with {} start_pos ranges,"
+      "{} samples for contig {} "
       "(contig batch {}/{}, sample batch {}/{}).",
       read_state_.query_regions_v4[read_state_.query_contig_batch_idx]
           .second.size(),
       (read_state_.all_samples ?
-           "all samples" :
+           "all" :
            std::to_string(read_state_.current_sample_batches.size())),
       read_state_.query_regions_v4[read_state_.query_contig_batch_idx].first,
       read_state_.query_contig_batch_idx + 1,
@@ -979,12 +980,9 @@ bool Reader::read_current_batch() {
 
     if (read_state_.query_results.num_cells() == 0 &&
         read_state_.query_results.query_status() ==
-            tiledb::Query::Status::INCOMPLETE)
-      throw std::runtime_error(
-          "Error exporting region on sample range " +
-          std::to_string(read_state_.sample_min) + "-" +
-          std::to_string(read_state_.sample_max) +
-          "; incomplete TileDB query with 0 results.");
+            tiledb::Query::Status::INCOMPLETE) {
+      LOG_DEBUG("Incomplete TileDB query with 0 results.");
+    }
 
     // Process the query results.
     auto old_num_exported = read_state_.last_num_records_exported;
@@ -1027,9 +1025,7 @@ bool Reader::read_current_batch() {
     if (!complete)
       return false;
 
-    if (query_status ==
-        tiledb::Query::Status::INCOMPLETE) {  // resubmit existing buffers_a if
-                                              // not double buffering
+    if (query_status == tiledb::Query::Status::INCOMPLETE) {
       buffers_a->set_buffers(query, dataset_->metadata().version);
     }
   } while (read_state_.query_results.query_status() ==
