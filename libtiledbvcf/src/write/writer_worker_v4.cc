@@ -25,6 +25,7 @@
  */
 
 #include "write/writer_worker_v4.h"
+#include "utils/logger_public.h"
 
 namespace tiledb {
 namespace vcf {
@@ -222,29 +223,70 @@ bool WriterWorkerV4::resume() {
   return true;
 }
 
-int StreamedComputation::next_id_ = 0;
+void WriterWorkerV4::init_ingestion_tasks(std::string uri) {
+  ac_task_.init(uri);
+}
 
-void StreamedComputation::compute(
+void WriterWorkerV4::flush_ingestion_tasks() {
+  ac_task_.flush();
+}
+
+void AlleleCountTask::init(std::string array_uri) {
+  LOG_DEBUG("AlleleCountTask: create context");
+  ctx_.reset(new tiledb::Context);
+  if (ctx_ == nullptr) {
+    LOG_FATAL("AlleleCountTask: error creating context");
+  }
+  LOG_DEBUG("AlleleCountTask: open array");
+  array_.reset(new tiledb::Array(*ctx_, array_uri, TILEDB_WRITE));
+  if (array_ == nullptr) {
+    LOG_FATAL("AlleleCountTask: error opening array");
+  }
+}
+
+void AlleleCountTask::flush() {
+  LOG_DEBUG("AlleleCountTask: flush {} records", ac_allele_.size());
+  tiledb::Query query(*ctx_, *array_);
+  auto st = query.set_layout(TILEDB_UNORDERED)
+                .set_data_buffer("allele", ac_allele_)
+                .set_offsets_buffer("allele", ac_allele_offsets_)
+                .set_data_buffer("count", ac_count_)
+                .submit();
+
+  if (st != Query::Status::COMPLETE) {
+    LOG_FATAL("AlleleCountTask: error submitting TileDB write query");
+  }
+
+  query.finalize();
+  ac_allele_ = "";
+  ac_count_ = {};
+}
+
+void AlleleCountTask::finalize() {
+  if (array_ != nullptr) {
+    array_->close();
+    array_ = nullptr;
+  }
+}
+
+void AlleleCountTask::process(
     bcf_hdr_t* hdr,
     const std::string& sample_name,
     const std::string& contig,
     uint32_t pos,
     bcf1_t* rec) {
   // Check if locus has changed
-  if (contig != contig_ || pos != pos_) {
-    // TODO: save results in 2 vectors: allele and count
-    // these vectors will be the buffers passed to the tiledb write query
-    // Save results
-    if (!locus_.empty() && allele_count_.size() > 0) {
+  std::string locus = fmt::format("{}:{}", contig, pos);
+  if (locus != locus_) {
+    if (allele_count_.size() > 0) {
       for (auto& [allele, count] : allele_count_) {
-        file_ << fmt::format("{}:{},{}\n", locus_, allele, count);
+        ac_allele_offsets_.push_back(ac_allele_.size());
+        ac_allele_ += fmt::format("{}:{}", locus_, allele);
+        ac_count_.push_back(count);
       }
+      allele_count_ = {};
     }
-    sample_name_ = sample_name;
-    contig_ = contig;
-    pos_ = pos;
-    locus_ = fmt::format("{}:{}", contig_, pos_);
-    allele_count_ = {};
+    locus_ = locus;
   }
 
   // TODO: should we normalize REF, ALT alleles?
@@ -269,8 +311,7 @@ bool WriterWorkerV4::buffer_record(const RecordHeapV4::Node& node) {
   const uint32_t pos = r->pos;
   const uint32_t end_pos = VCFUtils::get_end_pos(hdr, r, &val_);
 
-  // TODO: move this inline for now to simplify?
-  stream_.compute(hdr, sample_name, contig, pos, r);
+  ac_task_.process(hdr, sample_name, contig, pos, r);
 
   buffers_.sample_name().offsets().push_back(buffers_.sample_name().size());
   buffers_.sample_name().append(sample_name.c_str(), sample_name.length());

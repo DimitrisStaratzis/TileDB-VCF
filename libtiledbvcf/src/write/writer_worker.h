@@ -86,6 +86,11 @@ class WriterWorker {
    */
   virtual bool resume() = 0;
 
+  virtual void init_ingestion_tasks(std::string uri) {
+  }
+  virtual void flush_ingestion_tasks() {
+  }
+
   /** Return a handle to the attribute buffers */
   virtual const AttributeBufferSet& buffers() const = 0;
 

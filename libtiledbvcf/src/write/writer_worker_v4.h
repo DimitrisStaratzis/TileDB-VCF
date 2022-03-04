@@ -27,7 +27,6 @@
 #ifndef TILEDB_VCF_WRITER_WORKER_V4_H
 #define TILEDB_VCF_WRITER_WORKER_V4_H
 
-#include <fstream>
 #include <map>
 #include <memory>
 #include <string>
@@ -39,7 +38,6 @@
 
 #include "dataset/attribute_buffer_set.h"
 #include "dataset/tiledbvcfdataset.h"
-#include "utils/logger_public.h"
 #include "vcf/htslib_value.h"
 #include "vcf/vcf_utils.h"
 #include "write/record_heap_v4.h"
@@ -49,38 +47,44 @@
 namespace tiledb {
 namespace vcf {
 
-class StreamedComputation {
+class IngestionTask {};
+
+class AlleleCountTask : public IngestionTask {
  public:
-  StreamedComputation()
-      : id_(next_id_++) {
-    std::string filename = fmt::format("af-{}.csv", id_);
-    file_.open(filename);
-    file_ << "allele,count\n";
+  AlleleCountTask() {
   }
 
-  ~StreamedComputation() {
+  ~AlleleCountTask() {
     if (dst_ != nullptr) {
       free(dst_);
     }
-    file_.close();
+    finalize();
   }
 
-  void compute(
+  // open array
+  void init(std::string array_uri);
+
+  void process(
       bcf_hdr_t* hdr,
       const std::string& sample_name,
       const std::string& contig,
       uint32_t pos,
       bcf1_t* record);
 
+  // create query, write, finalize
+  void flush();
+
+  void finalize();
+
  private:
-  static int next_id_;
-  int id_;
-  std::ofstream file_;
+  std::unique_ptr<tiledb::Context> ctx_ = nullptr;
+  std::unique_ptr<tiledb::Array> array_ = nullptr;
   std::map<std::string, int> allele_count_;
-  std::string sample_name_;
-  std::string contig_;
   std::string locus_;
-  uint32_t pos_;
+
+  std::string ac_allele_;
+  std::vector<uint64_t> ac_allele_offsets_;
+  std::vector<uint32_t> ac_count_;
 
   // reusable htslib buffer for bcf_get_* functions
   int* dst_ = nullptr;
@@ -140,6 +144,10 @@ class WriterWorkerV4 : public WriterWorker {
   /** Returns the number of anchors buffered by the last parse operation. */
   uint64_t anchors_buffered() const;
 
+  void init_ingestion_tasks(std::string uri);
+  void flush_ingestion_tasks();
+  // void finalize_ingestion_tasks();
+
  private:
   /** Worker id */
   int id_;
@@ -165,9 +173,7 @@ class WriterWorkerV4 : public WriterWorker {
   /** Record heap for sorting records across samples. */
   RecordHeapV4 record_heap_;
 
-  StreamedComputation stream_;
-  std::vector<std::string> ac_loci_;
-  std::vector<uint32_t> ac_counts_;
+  AlleleCountTask ac_task_;
 
   /**
    * Inserts a record (non-anchor) into the heap if it fits
