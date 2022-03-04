@@ -27,6 +27,7 @@
 #ifndef TILEDB_VCF_WRITER_WORKER_V4_H
 #define TILEDB_VCF_WRITER_WORKER_V4_H
 
+#include <fstream>
 #include <map>
 #include <memory>
 #include <string>
@@ -38,6 +39,7 @@
 
 #include "dataset/attribute_buffer_set.h"
 #include "dataset/tiledbvcfdataset.h"
+#include "utils/logger_public.h"
 #include "vcf/htslib_value.h"
 #include "vcf/vcf_utils.h"
 #include "write/record_heap_v4.h"
@@ -46,6 +48,46 @@
 
 namespace tiledb {
 namespace vcf {
+
+class StreamedComputation {
+ public:
+  StreamedComputation()
+      : id_(next_id_++) {
+    std::string filename = fmt::format("af-{}.csv", id_);
+    file_.open(filename);
+    file_ << "allele,count\n";
+  }
+
+  ~StreamedComputation() {
+    if (dst_ != nullptr) {
+      free(dst_);
+    }
+    file_.close();
+  }
+
+  void compute(
+      bcf_hdr_t* hdr,
+      const std::string& sample_name,
+      const std::string& contig,
+      uint32_t pos,
+      bcf1_t* record);
+
+ private:
+  static int next_id_;
+  int id_;
+  std::ofstream file_;
+  std::map<std::string, int> allele_count_;
+  std::string sample_name_;
+  std::string contig_;
+  std::string locus_;
+  uint32_t pos_;
+
+  // reusable htslib buffer for bcf_get_* functions
+  int* dst_ = nullptr;
+
+  // reusable htslib buffer size for bcf_get_* functions
+  int ndst_ = 0;
+};
 
 /**
  * A WriterWorkerV4 is responsible for parsing a particular genomic region from
@@ -122,6 +164,10 @@ class WriterWorkerV4 : public WriterWorker {
 
   /** Record heap for sorting records across samples. */
   RecordHeapV4 record_heap_;
+
+  StreamedComputation stream_;
+  std::vector<std::string> ac_loci_;
+  std::vector<uint32_t> ac_counts_;
 
   /**
    * Inserts a record (non-anchor) into the heap if it fits

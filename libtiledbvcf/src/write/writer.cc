@@ -1020,6 +1020,8 @@ std::pair<uint64_t, uint64_t> Writer::ingest_samples_v4(
             }
           }
 
+          // TODO: write worker's AF buffer data to AF array (need another
+          // query_ object)
           worker->buffers().set_buffers(
               query_.get(), dataset_->metadata().version);
           auto st = query_->submit();
