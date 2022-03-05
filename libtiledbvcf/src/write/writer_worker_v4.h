@@ -61,6 +61,9 @@ class AlleleCountTask : public IngestionTask {
     finalize();
   }
 
+  // create array
+  void create(std::string array_uri);
+
   // open array
   void init(std::string array_uri);
 

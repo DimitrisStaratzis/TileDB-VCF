@@ -1080,11 +1080,9 @@ std::pair<uint64_t, uint64_t> Writer::ingest_samples_v4(
       std::async(std::launch::async, finalize_query, std::move(query_))));
 
   // Flush worker's ingestion task data at the end of the batch
-  LOG_DEBUG("Start flushing ingestion task data.");
   for (const auto& worker : workers) {
     worker->flush_ingestion_tasks();
   }
-  LOG_DEBUG("Done flushing ingestion task data.");
 
   // Start new query for new fragment for next contig
   query_.reset(new Query(*ctx_, *array_));

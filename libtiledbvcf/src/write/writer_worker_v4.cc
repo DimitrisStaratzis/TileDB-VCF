@@ -232,12 +232,11 @@ void WriterWorkerV4::flush_ingestion_tasks() {
 }
 
 void AlleleCountTask::init(std::string array_uri) {
-  LOG_DEBUG("AlleleCountTask: create context");
   ctx_.reset(new tiledb::Context);
   if (ctx_ == nullptr) {
     LOG_FATAL("AlleleCountTask: error creating context");
   }
-  LOG_DEBUG("AlleleCountTask: open array");
+
   array_.reset(new tiledb::Array(*ctx_, array_uri, TILEDB_WRITE));
   if (array_ == nullptr) {
     LOG_FATAL("AlleleCountTask: error opening array");
@@ -279,6 +278,7 @@ void AlleleCountTask::process(
   std::string locus = fmt::format("{}:{}", contig, pos);
   if (locus != locus_) {
     if (allele_count_.size() > 0) {
+      // TODO: should we skip <NON_REF> alleles?
       for (auto& [allele, count] : allele_count_) {
         ac_allele_offsets_.push_back(ac_allele_.size());
         ac_allele_ += fmt::format("{}:{}", locus_, allele);
