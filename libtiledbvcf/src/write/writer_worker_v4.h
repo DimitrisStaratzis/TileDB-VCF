@@ -40,61 +40,13 @@
 #include "dataset/tiledbvcfdataset.h"
 #include "vcf/htslib_value.h"
 #include "vcf/vcf_utils.h"
+#include "write/allele_counter.h"
 #include "write/record_heap_v4.h"
 #include "write/writer.h"
 #include "write/writer_worker.h"
 
 namespace tiledb {
 namespace vcf {
-
-class IngestionTask {};
-
-class AlleleCountTask : public IngestionTask {
- public:
-  AlleleCountTask() {
-  }
-
-  ~AlleleCountTask() {
-    if (dst_ != nullptr) {
-      free(dst_);
-    }
-    finalize();
-  }
-
-  // create array
-  void create(std::string array_uri);
-
-  // open array
-  void init(std::string array_uri);
-
-  void process(
-      bcf_hdr_t* hdr,
-      const std::string& sample_name,
-      const std::string& contig,
-      uint32_t pos,
-      bcf1_t* record);
-
-  // create query, write, finalize
-  void flush();
-
-  void finalize();
-
- private:
-  std::unique_ptr<tiledb::Context> ctx_ = nullptr;
-  std::unique_ptr<tiledb::Array> array_ = nullptr;
-  std::map<std::string, int> allele_count_;
-  std::string locus_;
-
-  std::string ac_allele_;
-  std::vector<uint64_t> ac_allele_offsets_;
-  std::vector<uint32_t> ac_count_;
-
-  // reusable htslib buffer for bcf_get_* functions
-  int* dst_ = nullptr;
-
-  // reusable htslib buffer size for bcf_get_* functions
-  int ndst_ = 0;
-};
 
 /**
  * A WriterWorkerV4 is responsible for parsing a particular genomic region from
@@ -176,7 +128,7 @@ class WriterWorkerV4 : public WriterWorker {
   /** Record heap for sorting records across samples. */
   RecordHeapV4 record_heap_;
 
-  AlleleCountTask ac_task_;
+  AlleleCounter ac_;
 
   /**
    * Inserts a record (non-anchor) into the heap if it fits

@@ -224,81 +224,11 @@ bool WriterWorkerV4::resume() {
 }
 
 void WriterWorkerV4::init_ingestion_tasks(std::string uri) {
-  ac_task_.init(uri);
+  ac_.init(uri);
 }
 
 void WriterWorkerV4::flush_ingestion_tasks() {
-  ac_task_.flush();
-}
-
-void AlleleCountTask::init(std::string array_uri) {
-  ctx_.reset(new tiledb::Context);
-  if (ctx_ == nullptr) {
-    LOG_FATAL("AlleleCountTask: error creating context");
-  }
-
-  array_.reset(new tiledb::Array(*ctx_, array_uri, TILEDB_WRITE));
-  if (array_ == nullptr) {
-    LOG_FATAL("AlleleCountTask: error opening array");
-  }
-}
-
-void AlleleCountTask::flush() {
-  LOG_DEBUG("AlleleCountTask: flush {} records", ac_allele_.size());
-  tiledb::Query query(*ctx_, *array_);
-  auto st = query.set_layout(TILEDB_UNORDERED)
-                .set_data_buffer("allele", ac_allele_)
-                .set_offsets_buffer("allele", ac_allele_offsets_)
-                .set_data_buffer("count", ac_count_)
-                .submit();
-
-  if (st != Query::Status::COMPLETE) {
-    LOG_FATAL("AlleleCountTask: error submitting TileDB write query");
-  }
-
-  query.finalize();
-  ac_allele_ = "";
-  ac_count_ = {};
-}
-
-void AlleleCountTask::finalize() {
-  if (array_ != nullptr) {
-    array_->close();
-    array_ = nullptr;
-  }
-}
-
-void AlleleCountTask::process(
-    bcf_hdr_t* hdr,
-    const std::string& sample_name,
-    const std::string& contig,
-    uint32_t pos,
-    bcf1_t* rec) {
-  // Check if locus has changed
-  std::string locus = fmt::format("{}:{}", contig, pos);
-  if (locus != locus_) {
-    if (allele_count_.size() > 0) {
-      // TODO: should we skip <NON_REF> alleles?
-      for (auto& [allele, count] : allele_count_) {
-        ac_allele_offsets_.push_back(ac_allele_.size());
-        ac_allele_ += fmt::format("{}:{}", locus_, allele);
-        ac_count_.push_back(count);
-      }
-      allele_count_ = {};
-    }
-    locus_ = locus;
-  }
-
-  // TODO: should we normalize REF, ALT alleles?
-  int ngt = bcf_get_genotypes(hdr, rec, &dst_, &ndst_);
-  for (int i = 0; i < ngt; i++) {
-    // Skip missing and REF alleles
-    if (bcf_gt_is_missing(dst_[i]) || bcf_gt_allele(dst_[i]) == 0) {
-      continue;
-    }
-    std::string allele = rec->d.allele[bcf_gt_allele(dst_[i])];
-    allele_count_[allele]++;
-  }
+  ac_.flush();
 }
 
 bool WriterWorkerV4::buffer_record(const RecordHeapV4::Node& node) {
@@ -311,7 +241,7 @@ bool WriterWorkerV4::buffer_record(const RecordHeapV4::Node& node) {
   const uint32_t pos = r->pos;
   const uint32_t end_pos = VCFUtils::get_end_pos(hdr, r, &val_);
 
-  ac_task_.process(hdr, sample_name, contig, pos, r);
+  ac_.process(hdr, sample_name, contig, pos, r);
 
   buffers_.sample_name().offsets().push_back(buffers_.sample_name().size());
   buffers_.sample_name().append(sample_name.c_str(), sample_name.length());
