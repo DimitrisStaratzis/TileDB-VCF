@@ -227,7 +227,7 @@ void TileDBVCFDataset::create(const CreationParams& params) {
       ctx, params.uri, metadata, params.checksum, params.allow_duplicates);
   write_metadata_v4(ctx, params.uri, metadata);
 
-  AlleleCounter::create(ctx, params.uri);
+  AlleleCounter::create(ctx, params.uri, params.checksum);
 }
 
 void TileDBVCFDataset::check_attribute_names(
