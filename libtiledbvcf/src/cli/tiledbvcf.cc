@@ -33,7 +33,6 @@
 #include "utils/logger_public.h"
 #include "utils/utils.h"
 #include "vcf/region.h"
-#include "write/allele_counter.h"
 #include "write/writer.h"
 
 using namespace tiledb::vcf;
@@ -52,7 +51,6 @@ void do_create(const CreationParams& args, const CLI::App& cmd) {
   LOG_TRACE("Starting create command.");
   config_to_log(cmd);
   TileDBVCFDataset::create(args);
-  AlleleCounter::create(args.uri);
   LOG_TRACE("Finished create command.");
 }
 
