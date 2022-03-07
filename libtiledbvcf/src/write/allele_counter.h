@@ -56,6 +56,9 @@ class AlleleCounter : public IngestionTask {
 
   // reusable htslib buffer size for bcf_get_* functions
   int ndst_ = 0;
+
+  // Update results with data at the previous locus.
+  void update_results();
 };
 
 }  // namespace tiledb::vcf

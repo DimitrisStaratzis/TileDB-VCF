@@ -65,6 +65,10 @@ void AlleleCounter::flush() {
   if (ac_count_.size() == 0) {
     return;
   }
+
+  // Update results for the last locus before flushing
+  update_results();
+
   LOG_DEBUG("AlleleCounter: flush {} records", ac_count_.size());
   LOG_DEBUG("AlleleCounter: allele = {}...", ac_allele_.substr(0, 64));
 
@@ -93,6 +97,17 @@ void AlleleCounter::finalize() {
   }
 }
 
+void AlleleCounter::update_results() {
+  if (allele_count_.size() > 0) {
+    for (auto& [allele, count] : allele_count_) {
+      ac_allele_offsets_.push_back(ac_allele_.size());
+      ac_allele_ += fmt::format("{}:{}", locus_, allele);
+      ac_count_.push_back(count);
+    }
+    allele_count_.clear();
+  }
+}
+
 void AlleleCounter::process(
     bcf_hdr_t* hdr,
     const std::string& sample_name,
@@ -102,14 +117,7 @@ void AlleleCounter::process(
   // Check if locus has changed
   std::string locus = fmt::format("{}:{}", contig, pos);
   if (locus != locus_) {
-    if (allele_count_.size() > 0) {
-      for (auto& [allele, count] : allele_count_) {
-        ac_allele_offsets_.push_back(ac_allele_.size());
-        ac_allele_ += fmt::format("{}:{}", locus_, allele);
-        ac_count_.push_back(count);
-      }
-      allele_count_ = {};
-    }
+    update_results();
     locus_ = locus;
   }
 
