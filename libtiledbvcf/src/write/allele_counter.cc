@@ -42,21 +42,18 @@ void AlleleCounter::create(
   schema.set_offsets_filter_list(filters_2);
 
   // Create attributes
-  auto count = Attribute::create<uint32_t>(ctx, AC_COUNT, filters_1);
+  auto count = Attribute::create<int32_t>(ctx, AC_COUNT, filters_1);
   schema.add_attribute(count);
 
   // Create array
+  // TODO: create utils function
   auto delim = utils::starts_with(root_uri, "tiledb://") ? '-' : '/';
   auto uri = utils::uri_join(root_uri, AC_URI, delim);
   Array::create(uri, schema);
 }
 
-void AlleleCounter::init(std::string root_uri) {
-  ctx_.reset(new Context);
-  if (ctx_ == nullptr) {
-    LOG_FATAL("AlleleCounter: error creating context");
-  }
-
+void AlleleCounter::init(std::shared_ptr<Context> ctx, std::string root_uri) {
+  ctx_ = ctx;
   auto uri = utils::uri_join(root_uri, AC_URI, '/');
   array_.reset(new Array(*ctx_, uri, TILEDB_WRITE));
   if (array_ == nullptr) {
@@ -65,8 +62,14 @@ void AlleleCounter::init(std::string root_uri) {
 }
 
 void AlleleCounter::flush() {
-  LOG_DEBUG("AlleleCounter: flush {} records", ac_allele_.size());
+  if (ac_count_.size() == 0) {
+    return;
+  }
+  LOG_DEBUG("AlleleCounter: flush {} records", ac_count_.size());
+  LOG_DEBUG("AlleleCounter: allele = {}...", ac_allele_.substr(0, 64));
+
   Query query(*ctx_, *array_);
+
   auto st = query.set_layout(TILEDB_UNORDERED)
                 .set_data_buffer(AC_ALLELE, ac_allele_)
                 .set_offsets_buffer(AC_ALLELE, ac_allele_offsets_)
@@ -77,12 +80,13 @@ void AlleleCounter::flush() {
     LOG_FATAL("AlleleCounter: error submitting TileDB write query");
   }
 
-  query.finalize();
-  ac_allele_ = "";
-  ac_count_ = {};
+  ac_allele_.clear();
+  ac_allele_offsets_.clear();
+  ac_count_.clear();
 }
 
 void AlleleCounter::finalize() {
+  flush();
   if (array_ != nullptr) {
     array_->close();
     array_ = nullptr;
@@ -99,7 +103,6 @@ void AlleleCounter::process(
   std::string locus = fmt::format("{}:{}", contig, pos);
   if (locus != locus_) {
     if (allele_count_.size() > 0) {
-      // TODO: should we skip <NON_REF> alleles?
       for (auto& [allele, count] : allele_count_) {
         ac_allele_offsets_.push_back(ac_allele_.size());
         ac_allele_ += fmt::format("{}:{}", locus_, allele);

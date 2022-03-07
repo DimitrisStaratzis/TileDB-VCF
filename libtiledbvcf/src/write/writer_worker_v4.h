@@ -99,7 +99,7 @@ class WriterWorkerV4 : public WriterWorker {
   /** Returns the number of anchors buffered by the last parse operation. */
   uint64_t anchors_buffered() const;
 
-  void init_ingestion_tasks(std::string uri);
+  void init_ingestion_tasks(std::shared_ptr<Context> ctx, std::string uri);
   void flush_ingestion_tasks();
   // void finalize_ingestion_tasks();
 

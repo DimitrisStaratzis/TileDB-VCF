@@ -23,7 +23,7 @@ class AlleleCounter : public IngestionTask {
       Context& ctx, std::string root_uri, tiledb_filter_type_t checksum);
 
   // open array
-  void init(std::string root_uri);
+  void init(std::shared_ptr<Context> ctx, std::string root_uri);
 
   void process(
       bcf_hdr_t* hdr,
@@ -42,14 +42,14 @@ class AlleleCounter : public IngestionTask {
   inline static const std::string AC_COUNT = "count";
   inline static const std::string AC_URI = "allele_count";
 
-  std::unique_ptr<Context> ctx_ = nullptr;
+  std::shared_ptr<Context> ctx_ = nullptr;
   std::unique_ptr<Array> array_ = nullptr;
   std::map<std::string, int> allele_count_;
   std::string locus_;
 
   std::string ac_allele_;
   std::vector<uint64_t> ac_allele_offsets_;
-  std::vector<uint32_t> ac_count_;
+  std::vector<int32_t> ac_count_;
 
   // reusable htslib buffer for bcf_get_* functions
   int* dst_ = nullptr;
