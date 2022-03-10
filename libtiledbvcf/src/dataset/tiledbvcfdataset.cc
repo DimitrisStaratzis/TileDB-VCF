@@ -288,6 +288,15 @@ void TileDBVCFDataset::create_empty_data_array(
         DimensionNames::V4::start_pos,
         {{start_pos_min, start_pos_max}},
         start_pos_extent);
+
+    // Create compressor as a filter
+    Filter rle_filter(ctx, TILEDB_FILTER_RLE);
+    // Create filter list
+    FilterList sample_filter_list(ctx);
+    // Add compressor to filter list
+    sample_filter_list.add_filter(rle_filter);
+    sample.set_filter_list(sample_filter_list);
+
     domain.add_dimensions(contig, start_pos, sample);
   }
   schema.set_domain(domain);
